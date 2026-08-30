@@ -1,0 +1,33 @@
+"use client";
+import { useGLTF } from "@react-three/drei";
+import { useFrame, useThree } from "@react-three/fiber";
+import { useEffect, useMemo, useRef } from "react";
+import { Box3, Color, Euler, Group, Material, Mesh, MeshStandardMaterial, Quaternion, Vector3 } from "three";
+import { SkeletonUtils } from "three/examples/jsm/Addons.js";
+import { anatomyLabels, expectedMeshes, getInspectionIndex, MeshName } from "../content/story";
+import { range, smooth } from "../controllers/math";
+import { anatomyOpacity, EXPLOSION, RECONSTRUCTION, storyPose } from "../controllers/sceneTimeline";
+import type { ExperienceBridge } from "../experienceTypes";
+
+type Transform = { position: Vector3; quaternion: Quaternion; rotation: Euler; scale: Vector3 };
+type Original = Transform & { colors: Color[] };
+const MODEL_SCALE = 1.18;
+const offsets: Record<MeshName, number> = { TopShell: .25, UpperFilo1: .205, UpperFilo2: .165, UpperFilo3: .125, UpperFilo4: .085, UpperFilo5: .045, Pistachio: 0, LowerFilo1: -.045, LowerFilo2: -.085, LowerFilo3: -.125, LowerFilo4: -.165, LowerFilo5: -.205, BaseShell: -.25 };
+const reconstructionOrder: MeshName[] = ["BaseShell", "LowerFilo5", "LowerFilo4", "LowerFilo3", "LowerFilo2", "LowerFilo1", "Pistachio", "UpperFilo5", "UpperFilo4", "UpperFilo3", "UpperFilo2", "UpperFilo1", "TopShell"];
+
+export function AnatomyBaklava({ bridge }: { bridge: ExperienceBridge }) {
+  const gltf = useGLTF("/Media/baklavao.glb"); const hero = useGLTF("/Media/baklavaHero.glb"); const root = useRef<Group>(null); const signaled = useRef(false); const { gl, camera, scene: stage, size } = useThree();
+  const prepared = useMemo(() => {
+    const scene = SkeletonUtils.clone(gltf.scene); const rawTransforms = new Map<MeshName, Transform>();
+    scene.traverse((child) => { if (!(child instanceof Mesh)) return; if (!expectedMeshes.includes(child.name as MeshName)) child.visible = false; const array = Array.isArray(child.material); const source = array ? child.material : [child.material]; const cloned = source.map((m: Material) => { const c = m.clone(); c.transparent = true; return c; }); child.material = array ? cloned : cloned[0]; child.castShadow = true; child.receiveShadow = true; child.frustumCulled = false; });
+    expectedMeshes.forEach((name) => { const mesh = scene.getObjectByName(name) as Mesh | undefined; const aligned = hero.scene.getObjectByName(name); if (!mesh || !aligned) throw new Error(`Masa anatomy alignment failed: ${name}`); rawTransforms.set(name, { position: mesh.position.clone(), quaternion: mesh.quaternion.clone(), rotation: mesh.rotation.clone(), scale: mesh.scale.clone() }); mesh.position.copy(aligned.position); mesh.quaternion.copy(aligned.quaternion); mesh.scale.copy(aligned.scale); });
+    scene.getObjectByName("Cube")?.removeFromParent(); const box = new Box3().setFromObject(scene); const size = box.getSize(new Vector3()); const center = box.getCenter(new Vector3()); const normalizer = MODEL_SCALE / Math.max(size.x, size.y, size.z); scene.scale.setScalar(normalizer); scene.position.copy(center).multiplyScalar(-normalizer);
+    const meshes = new Map<MeshName, Mesh>(); const originals = new Map<MeshName, Original>(); expectedMeshes.forEach((name) => { const mesh = scene.getObjectByName(name) as Mesh; meshes.set(name, mesh); const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]; originals.set(name, { position: mesh.position.clone(), quaternion: mesh.quaternion.clone(), rotation: mesh.rotation.clone(), scale: mesh.scale.clone(), colors: mats.map((m) => m instanceof MeshStandardMaterial ? m.color.clone() : new Color(1, 1, 1)) }); });
+    return { scene, meshes, originals, rawTransforms };
+  }, [gltf.scene, hero.scene]);
+
+  useEffect(() => { const anchors: Partial<Record<MeshName, Mesh>> = {}; prepared.meshes.forEach((mesh, name) => { anchors[name] = mesh; }); bridge.anatomy.current = anchors; let active = true; const rendered = () => { if (active && !signaled.current) { signaled.current = true; bridge.ready.current.anatomy = true; } }; prepared.meshes.forEach((mesh) => { mesh.onAfterRender = rendered; }); gl.compileAsync(stage, camera).catch((error) => { if (process.env.NODE_ENV === "development") console.warn("تعذر التسخين المسبق للتشريح", error); }); return () => { active = false; bridge.anatomy.current = {}; prepared.scene.traverse((o) => { if (o instanceof Mesh) { o.onAfterRender = () => undefined; (Array.isArray(o.material) ? o.material : [o.material]).forEach((m: Material) => m.dispose()); } }); }; }, [bridge, camera, gl, prepared, stage]);
+
+  useFrame((_, delta) => { const group = root.current; if (!group) return; const p = bridge.progress.current.current; const opacity = anatomyOpacity(p, bridge.ready.current.anatomy); const explode = smooth(range(p, EXPLOSION.start, EXPLOSION.end)); const activeIndex = getInspectionIndex(p); const activeName = activeIndex >= 0 ? anatomyLabels[activeIndex].key : null; prepared.meshes.forEach((mesh, name) => { const original = prepared.originals.get(name)!; const explodeIndex = expectedMeshes.indexOf(name); const staggered = smooth(range(explode, explodeIndex * .018, .72 + explodeIndex * .018)); const closeIndex = reconstructionOrder.indexOf(name); const closeStart = RECONSTRUCTION.start + closeIndex * .0035; const close = smooth(range(p, closeStart, closeStart + .022)); const separation = staggered * (1 - close); mesh.position.copy(original.position); mesh.position.y += offsets[name] * separation; mesh.position.z += activeName === name ? .035 : 0; mesh.quaternion.copy(original.quaternion); mesh.scale.copy(original.scale).multiplyScalar(activeName === name ? 1.025 : 1); const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]; mats.forEach((material, i) => { const subordinate = activeName && activeName !== name ? .63 : 1; material.opacity = opacity * subordinate; material.depthWrite = opacity > .55; if (material instanceof MeshStandardMaterial) { material.color.copy(original.colors[i]).multiplyScalar(activeName === name ? 1.16 : 1); material.emissive.set(activeName === "Pistachio" && name === "Pistachio" ? "#33401d" : "#000000"); material.emissiveIntensity = activeName === name ? .1 : 0; } }); }); const pose = storyPose(.5, size.width < 720); group.position.x += (pose.x - group.position.x) * Math.min(1, delta * 4); group.position.y += (pose.y - group.position.y) * Math.min(1, delta * 4); group.rotation.y += ((pose.rotationY + smooth(range(p, .53, .61)) * .09) - group.rotation.y) * Math.min(1, delta * 3); group.rotation.x += (.055 - group.rotation.x) * Math.min(1, delta * 3); group.scale.setScalar(pose.scale); group.visible = opacity > .002; });
+  return <group ref={root}><primitive object={prepared.scene} /></group>;
+}

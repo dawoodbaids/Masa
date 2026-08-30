@@ -1,0 +1,21 @@
+"use client";
+import { ContactShadows } from "@react-three/drei";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Suspense, useRef } from "react";
+import { DirectionalLight, MathUtils, PointLight, Vector3 } from "three";
+import { getInspectionIndex, anatomyLabels } from "./content/story";
+import { mix, range, smooth } from "./controllers/math";
+import type { ExperienceBridge } from "./experienceTypes";
+import { AnatomyBaklava } from "./models/AnatomyBaklava";
+import { HeroBaklava } from "./models/HeroBaklava";
+import { projectWorldToScreen } from "./three/projection";
+const target = new Vector3(); const selectedWorld = new Vector3();
+function FrameReady({ signal }: { signal: () => void }) { const sent = useRef(false); useFrame(() => { if (!sent.current) { sent.current = true; requestAnimationFrame(signal); } }); return null; }
+function Director({ bridge, keyLight, fillLight }: { bridge: ExperienceBridge; keyLight: React.RefObject<DirectionalLight | null>; fillLight: React.RefObject<PointLight | null> }) {
+  const { camera, size } = useThree();
+  useFrame((_, delta) => { const store = bridge.progress.current; store.current = MathUtils.damp(store.current, store.target, store.reduced ? 13 : 5.5, delta); const p = store.current; const mobile = size.width < 720; const anatomy = smooth(range(p, .5, .61)); const finale = smooth(range(p, .94, 1)); const historyBreath = Math.sin(range(p, .04, .49) * Math.PI * 4) * (mobile ? .05 : .12); let z = mix(mobile ? 4.7 : 4.35, mobile ? 4.25 : 3.95, smooth(range(p, .34, .5))); z = mix(z, mobile ? 5.15 : 4.65, anatomy); z = mix(z, mobile ? 4.75 : 4.4, finale); let x = historyBreath * (1 - anatomy); let y = mobile ? .08 : .1; const index = getInspectionIndex(p); if (index >= 0) { const object = bridge.anatomy.current[anatomyLabels[index].key]; if (object) { object.getWorldPosition(selectedWorld); y = MathUtils.clamp(selectedWorld.y * .2, -.28, .28); x += mobile ? 0 : (index % 2 ? -.08 : .08); } } camera.position.x = MathUtils.damp(camera.position.x, x, 3.8, delta); camera.position.y = MathUtils.damp(camera.position.y, y, 3.8, delta); camera.position.z = MathUtils.damp(camera.position.z, z, 3.8, delta); target.set(0, index >= 0 ? y * .42 : 0, 0); camera.lookAt(target); camera.updateMatrixWorld(); bridge.camera.current = camera; for (const [key, object] of Object.entries(bridge.anatomy.current)) if (object) bridge.anchors.current[key as keyof typeof bridge.anchors.current] = projectWorldToScreen(object, camera, size.width, size.height); const heat = smooth(range(p, .4, .455)) * (1 - smooth(range(p, .475, .51))); if (keyLight.current) { keyLight.current.intensity = 2.45 + heat * 1.15 + anatomy * .55; keyLight.current.color.set(heat > .2 ? "#ffc07a" : "#ffe0ae"); } if (fillLight.current) fillLight.current.intensity = 1.05 + smooth(range(p, .44, .48)) * .55; }); return null;
+}
+export function ExperienceCanvas({ bridge, heroReady, onHeroReady }: { bridge: ExperienceBridge; heroReady: boolean; onHeroReady: () => void }) {
+  const pointer = useRef({ x: 0, y: 0 }); const key = useRef<DirectionalLight>(null); const fill = useRef<PointLight>(null);
+  return <div className="canvas-shell" onPointerMove={(e) => { pointer.current.x = e.clientX / innerWidth * 2 - 1; pointer.current.y = -(e.clientY / innerHeight * 2 - 1); }}><Canvas shadows dpr={[1, 1.45]} camera={{ position: [0, .1, 4.35], fov: 34 }} gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}><ambientLight intensity={.48} color="#d8c4a7" /><directionalLight ref={key} position={[3, 4, 4]} intensity={2.45} color="#ffe0ae" castShadow /><directionalLight position={[-3, 1, -2]} intensity={1.45} color="#9ca77a" /><pointLight ref={fill} position={[0, -1.5, 2]} intensity={1.05} color="#b66a31" /><Suspense fallback={null}><HeroBaklava bridge={bridge} pointer={pointer} onReady={onHeroReady} /><FrameReady signal={onHeroReady} /></Suspense>{heroReady ? <Suspense fallback={null}><AnatomyBaklava bridge={bridge} /><FrameReady signal={() => { bridge.ready.current.anatomy = true; }} /></Suspense> : null}<ContactShadows position={[0, -.83, 0]} opacity={.24} scale={3.6} blur={2.8} far={2.2} frames={1} /><Director bridge={bridge} keyLight={key} fillLight={fill} /></Canvas></div>;
+}
