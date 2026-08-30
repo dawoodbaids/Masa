@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ExperienceBridge } from "./experienceTypes";
 import { ExperienceOverlay } from "./ExperienceOverlay";
 import { useExperienceProgress } from "./controllers/useExperienceProgress";
+import { experienceConfig } from "./content/experienceConfig";
 const ExperienceCanvas = dynamic(() => import("./ExperienceCanvas").then((m) => m.ExperienceCanvas), { ssr: false });
 
 export function MasaExperience() {
@@ -27,7 +28,7 @@ export function MasaExperience() {
         <div className="loading-gate" aria-live="polite" aria-label={heroReady ? "اكتمل التحميل" : "جارٍ تحميل التجربة"}>
           <strong>ماسة</strong><i />
         </div>
-        <noscript>تحتاج هذه التجربة التفاعلية إلى جافاسكربت.</noscript>
+        <noscript><section className="nojs-fallback" dir="rtl"><strong>ماسة</strong><p>حبة بقلاوة تحمل بين طبقاتها حكايةً من الحرفة والوقت.</p><a href={experienceConfig.contact.url}>{experienceConfig.contact.label}</a></section></noscript>
       </div>
     </main>
   );
