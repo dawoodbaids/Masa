@@ -14,14 +14,16 @@ export function MasaExperience() {
   const camera = useRef<ExperienceBridge["camera"]["current"]>(null);
   const ready = useRef<ExperienceBridge["ready"]["current"]>({ hero: false, anatomy: false, failed: false });
   const [heroReady, setHeroReady] = useState(false);
+  const [failed, setFailed] = useState(false);
   const bridge = useMemo<ExperienceBridge>(() => ({ progress, anchors, anatomy, camera, ready }), [progress]);
-  const reveal = useCallback(() => { if (ready.current.hero) return; ready.current.hero = true; progress.current.locked = false; let initial = 0; if (process.env.NODE_ENV === "development") { const forced = Number(new URLSearchParams(location.search).get("progress")); if (Number.isFinite(forced)) initial = Math.min(1, Math.max(0, forced)); } progress.current.current = initial; progress.current.target = initial; setHeroReady(true); }, [progress]);
+  const reveal = useCallback(() => { if (ready.current.hero) return; if (ready.current.failed) setFailed(true); ready.current.hero = true; progress.current.locked = false; let initial = 0; if (process.env.NODE_ENV === "development") { const forced = Number(new URLSearchParams(location.search).get("progress")); if (Number.isFinite(forced)) initial = Math.min(1, Math.max(0, forced)); } progress.current.current = initial; progress.current.target = initial; setHeroReady(true); }, [progress]);
   useEffect(() => { document.body.classList.toggle("experience-loading", !heroReady); return () => document.body.classList.remove("experience-loading"); }, [heroReady]);
   return (
     <main ref={track} className={`experience-track ${heroReady ? "is-ready" : "is-loading"}`} aria-label="ماسة — رحلة داخل حبة البقلاوة">
       <div className="experience-sticky">
         <ExperienceCanvas bridge={bridge} heroReady={heroReady} onHeroReady={reveal} />
         <ExperienceOverlay bridge={bridge} ready={heroReady} />
+        {failed ? <div className="model-fallback" dir="rtl"><strong>ماسة</strong><p>تعذّر تحميل المجسّم. يمكنك متابعة الحكاية النصية وإعادة المحاولة بتحديث الصفحة.</p></div> : null}
         <div className="loading-gate" aria-live="polite" aria-label={heroReady ? "اكتمل التحميل" : "جارٍ تحميل التجربة"}>
           <strong>ماسة</strong><i />
         </div>
