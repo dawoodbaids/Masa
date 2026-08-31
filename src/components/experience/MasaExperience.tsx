@@ -11,21 +11,22 @@ export function MasaExperience() {
   const track = useRef<HTMLElement>(null);
   const progress = useExperienceProgress(track);
   const anchors = useRef<ExperienceBridge["anchors"]["current"]>({});
-  const anatomy = useRef<ExperienceBridge["anatomy"]["current"]>({});
+  const pastry = useRef<ExperienceBridge["pastry"]["current"]>({});
   const camera = useRef<ExperienceBridge["camera"]["current"]>(null);
-  const ready = useRef<ExperienceBridge["ready"]["current"]>({ hero: false, anatomy: false, failed: false });
-  const [heroReady, setHeroReady] = useState(false);
+  const ready = useRef<ExperienceBridge["ready"]["current"]>({ pastry: false, failed: false });
+  const [pastryReady, setPastryReady] = useState(false);
   const [failed, setFailed] = useState(false);
-  const bridge = useMemo<ExperienceBridge>(() => ({ progress, anchors, anatomy, camera, ready }), [progress]);
-  const reveal = useCallback(() => { if (ready.current.hero) return; if (ready.current.failed) setFailed(true); ready.current.hero = true; progress.current.locked = false; let initial = 0; if (process.env.NODE_ENV === "development") { const forced = Number(new URLSearchParams(location.search).get("progress")); if (Number.isFinite(forced)) initial = Math.min(1, Math.max(0, forced)); } progress.current.current = initial; progress.current.target = initial; setHeroReady(true); }, [progress]);
-  useEffect(() => { document.body.classList.toggle("experience-loading", !heroReady); return () => document.body.classList.remove("experience-loading"); }, [heroReady]);
+  const bridge = useMemo<ExperienceBridge>(() => ({ progress, anchors, pastry, camera, ready }), [progress]);
+  const reveal = useCallback(() => { if (ready.current.pastry) return; if (ready.current.failed) setFailed(true); ready.current.pastry = true; progress.current.locked = false; let initial = 0; if (process.env.NODE_ENV === "development") { const forced = Number(new URLSearchParams(location.search).get("progress")); if (Number.isFinite(forced)) initial = Math.min(1, Math.max(0, forced)); } progress.current.current = initial; progress.current.target = initial; setPastryReady(true); }, [progress]);
+  useEffect(() => { if (process.env.NODE_ENV === "development") console.debug("[Masa] component mounted"); }, []);
+  useEffect(() => { document.body.classList.toggle("experience-loading", !pastryReady); return () => document.body.classList.remove("experience-loading"); }, [pastryReady]);
   return (
-    <main ref={track} className={`experience-track ${heroReady ? "is-ready" : "is-loading"}`} aria-label="ماسة — رحلة داخل حبة البقلاوة">
+    <main ref={track} className={`experience-track ${pastryReady ? "is-ready" : "is-loading"}`} aria-label="ماسة — رحلة داخل حبة البقلاوة">
       <div className="experience-sticky">
-        <ExperienceCanvas bridge={bridge} heroReady={heroReady} onHeroReady={reveal} />
-        <ExperienceOverlay bridge={bridge} ready={heroReady} />
+        <ExperienceCanvas bridge={bridge} onPastryReady={reveal} />
+        <ExperienceOverlay bridge={bridge} ready={pastryReady} />
         {failed ? <div className="model-fallback" dir="rtl"><strong>ماسة</strong><p>تعذّر تحميل المجسّم. يمكنك متابعة الحكاية النصية وإعادة المحاولة بتحديث الصفحة.</p></div> : null}
-        <div className="loading-gate" aria-live="polite" aria-label={heroReady ? "اكتمل التحميل" : "جارٍ تحميل التجربة"}>
+        <div className="loading-gate" aria-live="polite" aria-label={pastryReady ? "اكتمل التحميل" : "جارٍ تحميل التجربة"}>
           <strong>ماسة</strong><i />
         </div>
         <noscript><section className="nojs-fallback" dir="rtl"><strong>ماسة</strong><p>حبة بقلاوة تحمل بين طبقاتها حكايةً من الحرفة والوقت.</p><a href={experienceConfig.contact.url}>{experienceConfig.contact.label}</a></section></noscript>
