@@ -5,12 +5,22 @@ export const PRE_ANATOMY={start:.512,end:.56};export const COMPLETE_PAUSE={start
 export type RootPose={x:number;y:number;z:number;scale:number;rotationX:number;rotationY:number;rotationZ:number};
 type PoseKnot=RootPose&{progress:number};
 const knots:readonly PoseKnot[]=[
- {progress:0,x:-.16,y:.12,z:-1.02,scale:.68,rotationX:.18,rotationY:-.58,rotationZ:-.075},
- {progress:.075,x:.1,y:.3,z:.08,scale:.75,rotationX:.1,rotationY:-.25,rotationZ:.025},
- {progress:.17,x:.7,y:.27,z:-.14,scale:.7,rotationX:.065,rotationY:.16,rotationZ:-.035},
- {progress:.29,x:-.68,y:.06,z:.09,scale:.72,rotationX:.12,rotationY:-.27,rotationZ:.04},
- {progress:.41,x:.46,y:-.13,z:-.16,scale:.74,rotationX:.075,rotationY:.13,rotationZ:-.025},
- {progress:.49,x:-.22,y:-.08,z:.02,scale:.72,rotationX:.11,rotationY:-.14,rotationZ:.018},
+ // POSE A — hero front / 3-quarter (hero entry -> product discovery)
+ {progress:0,x:-.10,y:.12,z:-.42,scale:.70,rotationX:.16,rotationY:-.78,rotationZ:-.03},
+ {progress:.06,x:-.05,y:.16,z:-.30,scale:.73,rotationX:.12,rotationY:-.56,rotationZ:-.02},
+ {progress:.12,x:-.04,y:.18,z:-.26,scale:.74,rotationX:.11,rotationY:-.48,rotationZ:-.02},
+ // POSE B — opposite 3-quarter (product discovery hold)
+ {progress:.19,x:.30,y:.22,z:.06,scale:.70,rotationX:.06,rotationY:.18,rotationZ:.02},
+ {progress:.26,x:.56,y:.24,z:.00,scale:.67,rotationX:.08,rotationY:.58,rotationZ:-.03},
+ {progress:.33,x:.54,y:.20,z:.03,scale:.69,rotationX:.07,rotationY:.50,rotationZ:-.02},
+ // POSE C — slightly elevated top view (story movement)
+ {progress:.40,x:-.24,y:.34,z:-.30,scale:.71,rotationX:.44,rotationY:.04,rotationZ:.01},
+ {progress:.46,x:-.16,y:.30,z:-.36,scale:.73,rotationX:.40,rotationY:.02,rotationZ:.01},
+ // POSE D — side / profile reveal
+ {progress:.50,x:.08,y:-.02,z:.26,scale:.75,rotationX:.10,rotationY:-.92,rotationZ:0},
+ // POSE E — closer premium angle
+ {progress:.53,x:.28,y:.12,z:.34,scale:.78,rotationX:.14,rotationY:1.15,rotationZ:-.02},
+ // POSE F — clean pre-anatomy centered pose
  {progress:.56,x:0,y:-.075,z:-.2,scale:.72,rotationX:.105,rotationY:-.2,rotationZ:0},
 ];
 const at=(index:number)=>knots[Math.min(knots.length-1,Math.max(0,index))];
