@@ -10,7 +10,7 @@ export type ProgressStore = {
 };
 
 export function useExperienceProgress(track: RefObject<HTMLElement | null>) {
-  const store = useRef<ProgressStore>({ current: 0, target: 0, reduced: false, locked: true });
+  const store = useRef<ProgressStore>({ current: 0, target: 0, reduced: false, locked: false });
 
   useEffect(() => {
     if (process.env.NODE_ENV === "development") console.debug("[Masa] scroll system initialized");

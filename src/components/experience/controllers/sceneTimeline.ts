@@ -1,33 +1,18 @@
-﻿import {range,smooth} from "./math";
-
+import {SCENES,viewportMode} from "../content/responsiveScenes";
+import {range,smooth} from "./math";
 export const TIMELINE={heroEntry:[0,.075],productDiscovery:[.075,.17],storyMovement:[.17,.49],preOpen:[.49,.58],shellOpening:[.58,.625],internalReveal:[.615,.675],fullAnatomy:[.675,.69],topShellFocus:[.69,.73],filoFocus:[.73,.775],pistachioFocus:[.775,.815],baseFocus:[.815,.855],anatomyOverview:[.855,.89],internalReassembly:[.89,.93],shellClosing:[.93,.96],finalHero:[.96,1]} as const;
 export const PRE_ANATOMY={start:.512,end:.56};export const COMPLETE_PAUSE={start:.56,end:.58};export const EXPLOSION={start:.58,end:.675};export const INSPECTION={start:.69,end:.855};export const BEAUTY={start:.855,end:.89};export const RECONSTRUCTION={start:.89,end:.96};export const FINALE={start:.96,end:1};
-export type RootPose={x:number;y:number;z:number;scale:number;rotationX:number;rotationY:number;rotationZ:number};
-type PoseKnot=RootPose&{progress:number};
-const knots:readonly PoseKnot[]=[
- // POSE A — hero front / 3-quarter (hero entry -> product discovery)
- {progress:0,x:-.10,y:.12,z:-.42,scale:.70,rotationX:.16,rotationY:-.78,rotationZ:-.03},
- {progress:.06,x:-.05,y:.16,z:-.30,scale:.73,rotationX:.12,rotationY:-.56,rotationZ:-.02},
- {progress:.12,x:-.04,y:.18,z:-.26,scale:.74,rotationX:.11,rotationY:-.48,rotationZ:-.02},
- // POSE B — opposite 3-quarter (product discovery hold)
- {progress:.19,x:.30,y:.22,z:.06,scale:.70,rotationX:.06,rotationY:.18,rotationZ:.02},
- {progress:.26,x:.56,y:.24,z:.00,scale:.67,rotationX:.08,rotationY:.58,rotationZ:-.03},
- {progress:.33,x:.54,y:.20,z:.03,scale:.69,rotationX:.07,rotationY:.50,rotationZ:-.02},
- // POSE C — slightly elevated top view (story movement)
- {progress:.40,x:-.24,y:.34,z:-.30,scale:.71,rotationX:.44,rotationY:.04,rotationZ:.01},
- {progress:.46,x:-.16,y:.30,z:-.36,scale:.73,rotationX:.40,rotationY:.02,rotationZ:.01},
- // POSE D — side / profile reveal
- {progress:.50,x:.08,y:-.02,z:.26,scale:.75,rotationX:.10,rotationY:-.92,rotationZ:0},
- // POSE E — closer premium angle
- {progress:.53,x:.28,y:.12,z:.34,scale:.78,rotationX:.14,rotationY:1.15,rotationZ:-.02},
- // POSE F — clean pre-anatomy centered pose
- {progress:.56,x:0,y:-.075,z:-.2,scale:.72,rotationX:.105,rotationY:-.2,rotationZ:0},
+export type RootPose={x:number;y:number;z:number;scale:number;rotationX:number;rotationY:number;rotationZ:number};type Knot=RootPose&{progress:number};
+const K:readonly Knot[]=[
+ {progress:0,x:-.18,y:.12,z:-.5,scale:.70,rotationX:.18,rotationY:-.82,rotationZ:-.03},{progress:.055,x:.02,y:.15,z:-.28,scale:.76,rotationX:.11,rotationY:-.48,rotationZ:-.01},{progress:.115,x:.42,y:.26,z:.02,scale:.72,rotationX:.07,rotationY:.32,rotationZ:.02},{progress:.18,x:.58,y:.18,z:.1,scale:.70,rotationX:.08,rotationY:.72,rotationZ:-.03},{progress:.25,x:-.42,y:.38,z:-.24,scale:.74,rotationX:.48,rotationY:.02,rotationZ:.01},{progress:.325,x:-.56,y:.12,z:.08,scale:.73,rotationX:.08,rotationY:-.74,rotationZ:0},{progress:.40,x:.38,y:.28,z:-.12,scale:.76,rotationX:.28,rotationY:.5,rotationZ:-.02},{progress:.47,x:-.18,y:.02,z:.22,scale:.79,rotationX:.10,rotationY:-.94,rotationZ:0},{progress:.525,x:.24,y:.10,z:.28,scale:.81,rotationX:.14,rotationY:1.1,rotationZ:-.02},{progress:.56,x:0,y:-.075,z:-.2,scale:.72,rotationX:.105,rotationY:-.2,rotationZ:0}
 ];
-const at=(index:number)=>knots[Math.min(knots.length-1,Math.max(0,index))];
-const catmull=(a:number,b:number,c:number,d:number,t:number)=>{const t2=t*t,t3=t2*t;return .5*((2*b)+(-a+c)*t+(2*a-5*b+4*c-d)*t2+(-a+3*b-3*c+d)*t3)};
-const sample=(a:PoseKnot,b:PoseKnot,c:PoseKnot,d:PoseKnot,t:number,mobile:boolean,out:RootPose)=>{const horizontal=mobile?.72:1,vertical=mobile?.82:1,depth=mobile?.7:1,rotation=mobile?.72:1;out.x=catmull(a.x,b.x,c.x,d.x,t)*horizontal;out.y=catmull(a.y,b.y,c.y,d.y,t)*vertical;out.z=catmull(a.z,b.z,c.z,d.z,t)*depth;out.scale=catmull(a.scale,b.scale,c.scale,d.scale,t)*(mobile?1.07:1);out.rotationX=catmull(a.rotationX,b.rotationX,c.rotationX,d.rotationX,t)*(mobile?.82:1);out.rotationY=catmull(a.rotationY,b.rotationY,c.rotationY,d.rotationY,t)*rotation;out.rotationZ=catmull(a.rotationZ,b.rotationZ,c.rotationZ,d.rotationZ,t)*rotation;return out};
-export function sampleStoryPose(progress:number,mobile:boolean,out:RootPose){
- if(progress>=PRE_ANATOMY.end){const finale=smooth(range(progress,FINALE.start,1));out.x=(mobile?.055:.2)*finale;out.y=(mobile?-.055:-.075)+(mobile?.11:.12)*finale;out.z=-.2+.2*finale;out.scale=(mobile?.77:.72)+(mobile?.035:.055)*finale;out.rotationX=.105-.03*finale;out.rotationY=-.2+.085*finale;out.rotationZ=.018*finale;return out}
- let index=0;while(index<knots.length-2&&progress>knots[index+1].progress)index++;const b=at(index),c=at(index+1),local=smooth(range(progress,b.progress,c.progress));return sample(at(index-1),b,c,at(index+2),local,mobile,out);
+const at=(i:number)=>K[Math.min(K.length-1,Math.max(0,i))];
+const cat=(a:number,b:number,c:number,d:number,t:number)=>.5*((2*b)+(-a+c)*t+(2*a-5*b+4*c-d)*t*t+(-a+3*b-3*c+d)*t*t*t);
+export function sampleStoryPose(p:number,viewport:number|boolean,out:RootPose){
+ const width=typeof viewport==="number"?viewport:(typeof window!=="undefined"?window.innerWidth:(viewport?390:1200));
+ const mode=viewportMode(width),v=SCENES[mode],mobile=mode==="mobile";
+ if(p>=PRE_ANATOMY.end){const f=smooth(range(p,FINALE.start,1)),anatomyScale=mode==="mobile"?1.08:mode==="tablet"?1.05:1;out.x=(mobile?.055:.2)*f;out.y=(mobile?-.055:-.075)+(mobile?.11:.12)*f;out.z=-.2+.2*f;out.scale=((mobile?.77:.72)+(mobile?.035:.055)*f)*anatomyScale;out.rotationX=.105-.03*f;out.rotationY=-.2+.085*f;out.rotationZ=.018*f;return out}
+ let i=0;while(i<K.length-2&&p>K[i+1].progress)i++;const b=at(i),c=at(i+1),t=smooth(range(p,b.progress,c.progress)),a=at(i-1),d=at(i+2);
+ out.x=cat(a.x,b.x,c.x,d.x,t)*v.horizontal;out.y=cat(a.y,b.y,c.y,d.y,t)*v.vertical;out.z=cat(a.z,b.z,c.z,d.z,t)*v.depth;out.scale=cat(a.scale,b.scale,c.scale,d.scale,t)*v.scale;out.rotationX=cat(a.rotationX,b.rotationX,c.rotationX,d.rotationX,t)*v.rotation;out.rotationY=cat(a.rotationY,b.rotationY,c.rotationY,d.rotationY,t)*v.rotation;out.rotationZ=cat(a.rotationZ,b.rotationZ,c.rotationZ,d.rotationZ,t)*v.rotation;return out;
 }
 export const createRootPose=():RootPose=>({x:0,y:0,z:0,scale:1,rotationX:0,rotationY:0,rotationZ:0});
