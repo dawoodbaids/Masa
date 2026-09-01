@@ -180,7 +180,7 @@ export function SingleBaklava({
     scene.traverse((child) => {
       if (!(child instanceof Mesh)) return;
       if (isInternalFilo(child.name)) {
-        child.visible = false;
+        child.visible = true;
         internalMeshes.push(child);
       }
       if (!expectedMeshes.includes(child.name as MeshName)) return;
@@ -188,7 +188,7 @@ export function SingleBaklava({
         source = array ? child.material : [child.material],
         materials = source.map((material: Material) => {
           const clone = material.clone();
-          clone.transparent = true;
+          clone.transparent = false;
           return clone;
         });
       child.material = array ? materials : materials[0];
@@ -391,7 +391,7 @@ export function SingleBaklava({
       profile = getResponsiveProfile(size.width, size.height),
       mobile = profile.mode === "mobile",
       pose = sampleStoryPose(p, size.width, size.height, rootPose.current),
-      rotationProgress = smooth(range(p, PRE_ANATOMY.start, PRE_ANATOMY.end)),
+      rotationProgress = smooth(range(p, PRE_ANATOMY.start, PRE_ANATOMY.end)) * 0.08,
       anatomyRotationWeight =
         smooth(range(p, 0.5, 0.66)) * (1 - smooth(range(p, 0.91, 0.98))),
       idleRotationSpeed = (Math.PI * 2) / 21,
@@ -410,10 +410,11 @@ export function SingleBaklava({
           (1 - smooth(range(local, 0.8, 0.96)))
         : 0,
       motionScale = mobile ? profile.explosion : 1;
-    idleRotation.current =
-      (idleRotation.current +
-        delta * idleRotationSpeed * MathUtils.lerp(1, 0.05, anatomyRotationWeight)) %
-      (Math.PI * 2);
+    if (!bridge.progress.current.reduced)
+      idleRotation.current =
+        (idleRotation.current +
+          delta * idleRotationSpeed * MathUtils.lerp(1, 0.05, anatomyRotationWeight)) %
+        (Math.PI * 2);
     tempEuler.set(
       pose.rotationX,
       pose.rotationY + rotationProgress * Math.PI * 2 + idleRotation.current,
@@ -423,7 +424,7 @@ export function SingleBaklava({
     group.position.set(pose.x, pose.y, pose.z);
     group.quaternion.copy(rootQuaternion.current);
     group.scale.setScalar(
-      pose.scale * (mobile ? MathUtils.lerp(1, 0.86, explosionAmount) : 1),
+      pose.scale,
     );
     prepared.rigs.forEach((rig) => {
       const isFilo = rig.logical === "UpperFilo" || rig.logical === "LowerFilo",
@@ -433,8 +434,7 @@ export function SingleBaklava({
         mobileY = mobile ? profile.anatomySpacing : 1,
         mobileZ = mobile ? 0.78 : 1;
       if (isFilo) {
-        const revealOpacity = smooth(range(explosionAmount, 0.015, 0.14));
-        rig.mesh.visible = explosionAmount > 0.001;
+        rig.mesh.visible = true;
         tempPosition.set(
           rig.anatomyPosition.x * motionScale * explosionAmount,
           rig.anatomyPosition.y * mobileY * explosionAmount,
@@ -451,8 +451,8 @@ export function SingleBaklava({
           MathUtils.lerp(1, rig.anatomyScale.z, explosionAmount),
         );
         rig.materials.forEach((material) => {
-          material.opacity = revealOpacity;
-          material.depthWrite = revealOpacity > 0.98;
+          material.opacity = 1;
+          material.depthWrite = true;
         });
       } else {
         tempPosition.set(

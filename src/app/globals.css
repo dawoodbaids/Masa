@@ -127,3 +127,31 @@
  .connector-overlay .anatomy-copy.mobile-follow h2{font-size:clamp(17px,4.8vw,20px)}
  .connector-overlay .anatomy-copy.mobile-follow p{font-size:11px;line-height:1.32}
 }
+
+/* Mobile-first RTL refinement: physical stage anchors stay stable while Arabic text flows naturally. */
+body{font-synthesis:none;text-rendering:optimizeLegibility}
+.story-beat h1,.anatomy-copy h2{letter-spacing:0;text-wrap:balance}
+.story-beat>small,.anatomy-copy>b{letter-spacing:0}
+
+@media(max-width:720px){
+ .masthead{inset-inline:auto;right:calc(env(safe-area-inset-right) + clamp(18px,5.4vw,26px));left:auto}
+ .story-rail{inset-inline:auto;left:calc(env(safe-area-inset-left) + clamp(8px,2.6vw,12px));right:auto}
+ .beat-top,.beat-final{inset-inline:auto;left:50%;right:auto;transform:translateX(-50%) translateY(var(--lift))}
+ .connector-overlay .anatomy-copy.mobile-follow{width:clamp(108px,29vw,118px);padding:0;text-wrap:pretty;transition:top .18s ease-out}
+ .connector-overlay .anatomy-copy.mobile-follow.mobile-left{left:calc(env(safe-area-inset-left) + clamp(12px,4vw,18px));right:auto}
+ .connector-overlay .anatomy-copy.mobile-follow.mobile-right{right:calc(env(safe-area-inset-right) + clamp(12px,4vw,18px));left:auto}
+ .connector-overlay .anatomy-copy.mobile-follow h2{font-size:clamp(20px,5.7vw,24px);line-height:1.28}
+ .connector-overlay .anatomy-copy.mobile-follow p{margin-block:6px 0;font-size:clamp(14px,3.7vw,15.5px);line-height:1.5}
+ .connector-overlay path{opacity:.78;stroke-width:1;stroke-linecap:round;stroke-linejoin:round}
+}
+
+@media(max-width:390px) and (max-height:700px){
+ .connector-overlay .anatomy-copy.mobile-follow{width:clamp(104px,29vw,112px)}
+ .connector-overlay .anatomy-copy.mobile-follow h2{font-size:clamp(19px,5.4vw,22px)}
+ .connector-overlay .anatomy-copy.mobile-follow p{font-size:14px;line-height:1.45}
+}
+
+@media(prefers-reduced-motion:reduce){
+ .experience-track{height:900vh}
+ .connector-overlay .anatomy-copy.mobile-follow{transition:none}
+}
