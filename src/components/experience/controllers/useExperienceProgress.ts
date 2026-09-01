@@ -5,6 +5,7 @@ import { RefObject, useEffect, useRef } from "react";
 export type ProgressStore = {
   current: number;
   target: number;
+  velocity: number;
   reduced: boolean;
   locked: boolean;
 };
@@ -13,7 +14,7 @@ export type ProgressStore = {
 const storyProgress=(raw:number)=>raw<=.42?raw/.42*.58:.58+(raw-.42)/.58*.42;
 
 export function useExperienceProgress(track: RefObject<HTMLElement | null>) {
-  const store = useRef<ProgressStore>({ current: 0, target: 0, reduced: false, locked: false });
+  const store = useRef<ProgressStore>({ current: 0, target: 0, velocity: 0, reduced: false, locked: false });
 
   useEffect(() => {
     if (process.env.NODE_ENV === "development") console.debug("[Masa] scroll system initialized");
@@ -35,7 +36,9 @@ export function useExperienceProgress(track: RefObject<HTMLElement | null>) {
       const el = track.current;
       if (!el) return;
       const travel = Math.max(1, el.offsetHeight - innerHeight);
-      store.current.target = storyProgress(Math.min(1, Math.max(0, -el.getBoundingClientRect().top / travel)));
+      const next = storyProgress(Math.min(1, Math.max(0, -el.getBoundingClientRect().top / travel)));
+      store.current.velocity = Math.max(-0.018, Math.min(0.018, next - store.current.target));
+      store.current.target = next;
     };
     const scheduleUpdate = () => {
       if (frame) return;
