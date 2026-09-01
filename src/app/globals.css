@@ -14,7 +14,7 @@
 /* Cinematic direction: one continuous product stage, with restrained depth layers. */
 .experience-track{height:1850vh}
 .is-ready .canvas-shell{filter:brightness(calc(.28 + var(--intro-light,1)*.72));transition:opacity .7s cubic-bezier(.22,1,.36,1),filter .2s linear}
-.experience-sticky:before{content:"";position:absolute;z-index:0;inset:-12%;pointer-events:none;background:radial-gradient(circle at calc(50% + var(--parallax,0)*2%),rgba(232,174,89,calc(.08 + var(--heat,0)*.13)) 0,transparent 44%),linear-gradient(112deg,transparent 36%,rgba(255,225,174,calc(var(--syrup,0)*.1)) 49%,transparent 62%)}
+.experience-sticky:before{content:"";position:absolute;z-index:0;inset:-12%;pointer-events:none;background:radial-gradient(circle at calc(50% + var(--parallax,0)*2%),rgba(232,174,89,calc(.045 + var(--warmth,0)*.12)) 0,transparent 44%),linear-gradient(112deg,transparent 38%,rgba(255,225,174,calc(var(--warmth,0)*.07)) 51%,transparent 64%)}
 .brand-geometry{transform:translateY(calc(var(--parallax,0)*-5px))}
 .mask{clip-path:inset(calc(100% - var(--clip,100%)) 0 0)}
 .story-beat p{white-space:pre-line}
@@ -87,3 +87,22 @@
 .is-debugging .anatomy-debug{display:block}.debug-safe{position:absolute;inset:13vh 12px 24vh;border:1px dashed #4ee5ff;background:#4ee5ff08}
 .debug-anchor,.debug-label{position:absolute;left:-5px;top:-5px;width:10px;height:10px;border:2px solid currentColor;border-radius:50%;background:#100c09}
 .debug-label{color:#4ee5ff}.debug-name{position:absolute;left:12px;bottom:12px;padding:5px 7px;background:#100c09cc;color:#fff}
+
+/* Phase 1 narrative: restrained hero typography; anatomy styles remain unchanged. */
+.hero-lines{display:grid;gap:5px;margin-block-start:18px;font-size:clamp(1rem,1.45vw,1.35rem);line-height:1.55;color:color-mix(in srgb,currentColor 76%,transparent)}
+.hero-line{--line-show:0;--line-lift:10px;display:block;opacity:var(--line-show);transform:translateY(var(--line-lift))}
+[data-beat="hero"] h1{max-inline-size:none;color:var(--stage-ink);font-size:clamp(4.8rem,9vw,8.8rem);line-height:.95}
+[data-beat="preparation"]{top:48%}
+@media(max-width:720px){
+ [data-beat="hero"]{inset:0;width:100%;max-inline-size:none;transform:translateY(var(--lift));text-align:center}
+ [data-beat="hero"]>small{display:none}
+ [data-beat="hero"] .mask{position:absolute;inset-block-start:calc(env(safe-area-inset-top) + clamp(88px,13dvh,126px));inset-inline:0}
+ [data-beat="hero"] h1{margin-inline:auto;font-size:clamp(52px,17vw,74px)}
+ [data-beat="hero"] .hero-lines{position:absolute;inset-inline:24px;inset-block-end:calc(env(safe-area-inset-bottom) + clamp(78px,11dvh,108px));margin:0;gap:2px;font-size:clamp(16px,4.5vw,19px);line-height:1.48}
+ [data-beat="preparation"]{top:auto}
+}
+@media(max-width:390px) and (max-height:700px){
+ [data-beat="hero"] .mask{inset-block-start:calc(env(safe-area-inset-top) + 66px)}
+ [data-beat="hero"] .hero-lines{inset-block-end:calc(env(safe-area-inset-bottom) + 58px);font-size:15px}
+}
+@media(prefers-reduced-motion:reduce){.hero-line{opacity:1;transform:none}}
