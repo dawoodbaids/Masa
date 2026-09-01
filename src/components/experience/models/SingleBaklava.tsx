@@ -20,11 +20,11 @@ type LayerRig={logical:LogicalLayer;mesh:Mesh;motion:Group;footprint:Group;origi
 export const LAYER_MAPPING:Readonly<Record<LogicalLayer,MeshName>>={TopShell:"TopShell",UpperFilo:"LowerFilo",Pistachio:"Pistachio",LowerFilo:"UpperFilo",BaseShell:"BaseShell"};
 const LAYERS:readonly LogicalLayer[]=["TopShell","UpperFilo","Pistachio","LowerFilo","BaseShell"];
 const MOTION:Readonly<Record<LogicalLayer,MotionSpec>>={
- TopShell:{c1:[.015,.15,.04],c2:[-.055,.43,.1],to:[-.08,.62,.14],rotation:[-.15,.13,-.075],focus:[-.025,.025,.1],focusRotation:[-.035,.045,.018]},
+ TopShell:{c1:[.015,.15,.04],c2:[-.055,.41,.1],to:[-.08,.58,.14],rotation:[-.15,.13,-.075],focus:[-.025,.025,.1],focusRotation:[-.035,.045,.018]},
  UpperFilo:{c1:[-.01,.034,-.005],c2:[.04,.20,-.055],to:[.07,.34,-.08],rotation:[.07,-.1,.045],focus:[.028,.014,.085],focusRotation:[.022,-.038,-.012]},
  Pistachio:{c1:[0,.006,.018],c2:[-.012,.02,.055],to:[-.02,.02,.075],rotation:[-.022,.045,.014],focus:[.012,.006,.1],focusRotation:[-.014,.04,.008]},
  LowerFilo:{c1:[.01,-.033,-.005],c2:[-.04,-.20,-.055],to:[-.07,-.34,-.08],rotation:[-.07,.1,-.045],focus:[-.028,-.014,.085],focusRotation:[.022,.038,.012]},
- BaseShell:{c1:[-.015,-.15,.035],c2:[.055,-.43,.095],to:[.08,-.62,.13],rotation:[.15,-.12,.075],focus:[.025,-.025,.1],focusRotation:[.035,-.04,-.018]},
+ BaseShell:{c1:[-.015,-.15,.035],c2:[.055,-.41,.095],to:[.08,-.58,.13],rotation:[.15,-.12,.075],focus:[.025,-.025,.1],focusRotation:[.035,-.04,-.018]},
 };
 const identity=new Quaternion(),tempPosition=new Vector3(),tempFocus=new Vector3(),tempQuaternion=new Quaternion(),tempEuler=new Euler();
 const correction=(value:number)=>MathUtils.clamp(value,1,1.42);

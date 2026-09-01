@@ -11,7 +11,7 @@ const cat=(a:number,b:number,c:number,d:number,t:number)=>.5*((2*b)+(-a+c)*t+(2*
 export function sampleStoryPose(p:number,viewport:number|boolean,out:RootPose){
  const width=typeof viewport==="number"?viewport:(typeof window!=="undefined"?window.innerWidth:(viewport?390:1200));
  const mode=viewportMode(width),v=SCENES[mode],mobile=mode==="mobile";
- if(p>=PRE_ANATOMY.end){const f=smooth(range(p,FINALE.start,1)),anatomyScale=mode==="mobile"?1.08:mode==="tablet"?1.05:1;out.x=(mobile?.055:.2)*f;out.y=(mobile?-.055:-.075)+(mobile?.11:.12)*f;out.z=-.2+.2*f;out.scale=((mobile?.77:.72)+(mobile?.035:.055)*f)*anatomyScale;out.rotationX=.105-.03*f;out.rotationY=-.2+.085*f;out.rotationZ=.018*f;return out}
+ if(p>=PRE_ANATOMY.end){const f=smooth(range(p,FINALE.start,1)),anatomyScale=mode==="mobile"?1.08:mode==="tablet"?1.05:1,finalY=mode==="mobile"?-.22:mode==="tablet"?-.19:-.21;out.x=(mobile?.035:.08)*f;out.y=(mobile?-.055:-.075)+(finalY-(mobile?-.055:-.075))*f;out.z=-.2+.08*f;out.scale=((mobile?.77:.72)+(mobile?.01:.02)*f)*anatomyScale;out.rotationX=.105-.03*f;out.rotationY=-.2+.06*f;out.rotationZ=.012*f;return out}
  let i=0;while(i<K.length-2&&p>K[i+1].progress)i++;const b=at(i),c=at(i+1),t=smooth(range(p,b.progress,c.progress)),a=at(i-1),d=at(i+2);
  out.x=cat(a.x,b.x,c.x,d.x,t)*v.horizontal;out.y=cat(a.y,b.y,c.y,d.y,t)*v.vertical;out.z=cat(a.z,b.z,c.z,d.z,t)*v.depth;out.scale=cat(a.scale,b.scale,c.scale,d.scale,t)*v.scale;out.rotationX=cat(a.rotationX,b.rotationX,c.rotationX,d.rotationX,t)*v.rotation;out.rotationY=cat(a.rotationY,b.rotationY,c.rotationY,d.rotationY,t)*v.rotation;out.rotationZ=cat(a.rotationZ,b.rotationZ,c.rotationZ,d.rotationZ,t)*v.rotation;return out;
 }
