@@ -13,8 +13,8 @@ export function getResponsiveProfile(width:number,height:number):ResponsiveProfi
  const compact=h<=700,veryTall=aspect>=2.12,large=w>=415,kind:ViewportKind=compact?"compact":large?"large":veryTall?"tall":"phone";
  const heightFit=Math.min(1,Math.max(.78,(h-560)/300+.78)),widthFit=Math.min(1.08,Math.max(.84,w/390));
  const scale=(compact?1.20:veryTall?1.36:large?1.34:1.29)*Math.min(widthFit,.93+heightFit*.1);
- const usableHeight=h*(1-.13-(compact?.3:.27)),anatomySpacing=Math.min(1.28,Math.max(.86,usableHeight/515));
- return{mode:"mobile",kind,width:w,height:h,aspect,scale,horizontal:compact?.42:large?.52:.47,vertical:compact?.62:veryTall?.94:.79,depth:.76,rotation:.9,cameraZ:compact?5.72:veryTall?5.35:5.48,anatomyCameraZ:compact?6.18:veryTall?5.86:5.98,fov:compact?39:large?37:38,explosion:compact?.78:veryTall?.98:large?.94:.9,anatomySpacing,focusGap:.045+Math.max(0,anatomySpacing-1)*.035,stageCenterY:compact?.07:veryTall?.16:.11,anatomyCenterY:compact?.02:veryTall?.12:.07,safeTop:.13,safeBottom:compact?.3:.27};
+ const targetCompositionHeight=h*.74,anatomySpacing=compact?1.42:Math.min(1.55,Math.max(1.12,targetCompositionHeight/490*1.18));
+ return{mode:"mobile",kind,width:w,height:h,aspect,scale,horizontal:compact?.42:large?.52:.47,vertical:compact?.62:veryTall?.94:.79,depth:.76,rotation:.9,cameraZ:compact?5.72:veryTall?5.35:5.48,anatomyCameraZ:compact?4.5:veryTall?5.28:5.35,fov:compact?39:large?37:38,explosion:compact?.86:veryTall?.98:large?.95:.92,anatomySpacing,focusGap:.025,stageCenterY:compact?.07:veryTall?.16:.11,anatomyCenterY:compact?.02:veryTall?.08:.04,safeTop:.1,safeBottom:compact?.16:.12};
 }
 
 export const ENVIRONMENT={intro:[249,247,242],transition:[151,126,101],inside:[16,12,9],ink:[42,30,21],cream:[246,238,224],darkStart:.43,darkFull:.58,lightStart:.925,lightFull:.99} as const;

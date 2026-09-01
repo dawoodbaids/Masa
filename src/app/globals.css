@@ -106,3 +106,24 @@
  [data-beat="hero"] .hero-lines{inset-block-end:calc(env(safe-area-inset-bottom) + 58px);font-size:15px}
 }
 @media(prefers-reduced-motion:reduce){.hero-line{opacity:1;transform:none}}
+
+/* Mobile-first anatomy: projected anchors choose the opposite safe label rail. */
+@media(max-width:720px) and (orientation:portrait){
+ .connector-overlay .anatomy-copy.mobile-follow{width:min(25vw,104px);inset-inline:auto;padding:0;text-wrap:balance}
+ .connector-overlay .anatomy-copy.mobile-follow.mobile-left{left:clamp(18px,5vw,24px);right:auto;text-align:right}
+ .connector-overlay .anatomy-copy.mobile-follow.mobile-right{right:clamp(18px,5vw,24px);left:auto;text-align:right}
+ .connector-overlay .anatomy-copy.mobile-follow h2{font-size:clamp(18px,5vw,22px);line-height:1.18}
+ .connector-overlay .anatomy-copy.mobile-follow p{font-size:clamp(11px,2.9vw,12px);line-height:1.38}
+ .connector-overlay path{opacity:.72;stroke-width:.9}
+ .story-beat>small,.anatomy-copy>b{font-size:clamp(11px,2.9vw,13px)}
+ .experience-overlay .story-rail{transition:opacity .25s ease}
+ .experience-overlay.anatomy-active .story-rail{opacity:0}
+ [data-beat="map"]{bottom:max(18px,env(safe-area-inset-bottom))}
+ [data-beat="map"] h1{font-size:clamp(22px,6vw,28px)}
+ [data-beat="map"] .physical-map{display:none}
+}
+@media(max-width:390px) and (max-height:700px){
+ .connector-overlay .anatomy-copy.mobile-follow{width:min(27vw,100px)}
+ .connector-overlay .anatomy-copy.mobile-follow h2{font-size:clamp(17px,4.8vw,20px)}
+ .connector-overlay .anatomy-copy.mobile-follow p{font-size:11px;line-height:1.32}
+}
