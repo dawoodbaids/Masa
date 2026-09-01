@@ -8,8 +8,8 @@ export const STORY_SCENES={
  // Phase 2 inserts ovenEntry, baking, ovenExit, syrup and rest here.
  anatomy:{start:.512,end:.89},reassembly:{start:.89,end:.96},finale:{start:.96,end:1},
 } as const;
-export const TIMELINE={heroEntry:[0,.145],history:[.145,.285],craft:[.285,.44],preparation:[.44,.512],preOpen:[.512,.58],shellOpening:[.58,.625],internalReveal:[.615,.675],fullAnatomy:[.675,.69],topShellFocus:[.69,.73],filoFocus:[.73,.775],pistachioFocus:[.775,.815],baseFocus:[.815,.855],anatomyOverview:[.855,.89],internalReassembly:[.89,.93],shellClosing:[.93,.96],finalHero:[.96,1]} as const;
-export const PRE_ANATOMY={start:.512,end:.56};export const COMPLETE_PAUSE={start:.56,end:.58};export const EXPLOSION={start:.58,end:.675};export const INSPECTION={start:.69,end:.855};export const BEAUTY={start:.855,end:.89};export const RECONSTRUCTION={start:.89,end:.96};export const FINALE={start:.96,end:1};
+export const TIMELINE={heroEntry:[0,.145],history:[.145,.285],craft:[.285,.44],preparation:[.44,.512],preOpen:[.512,.58],shellOpening:[.58,.595],internalReveal:[.58,.595],fullAnatomy:[.595,.69],topShellFocus:[.69,.73],filoFocus:[.73,.775],pistachioFocus:[.775,.815],baseFocus:[.815,.855],anatomyOverview:[.855,.89],internalReassembly:[.89,.905],shellClosing:[.89,.905],finalHero:[.96,1]} as const;
+export const PRE_ANATOMY={start:.512,end:.56};export const COMPLETE_PAUSE={start:.56,end:.58};export const EXPLOSION={start:.58,end:.595};export const INSPECTION={start:.69,end:.855};export const BEAUTY={start:.855,end:.89};export const RECONSTRUCTION={start:.89,end:.905};export const FINALE={start:.96,end:1};
 export type RootPose={x:number;y:number;z:number;scale:number;rotationX:number;rotationY:number;rotationZ:number};type Knot=RootPose&{progress:number};
 const K:readonly Knot[]=[
  {progress:0,x:.10,y:.01,z:-.18,scale:.78,rotationX:.13,rotationY:-.46,rotationZ:-.015},

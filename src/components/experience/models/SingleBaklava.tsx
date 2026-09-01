@@ -25,7 +25,9 @@ import { expectedMeshes, MeshName } from "../content/story";
 import { range, smooth } from "../controllers/math";
 import {
   createRootPose,
+  EXPLOSION,
   PRE_ANATOMY,
+  RECONSTRUCTION,
   sampleStoryPose,
 } from "../controllers/sceneTimeline";
 import type { ExperienceBridge } from "../experienceTypes";
@@ -129,9 +131,7 @@ const identity = new Quaternion(),
   explodedBounds = new Box3(),
   explodedCenter = new Vector3();
 const correction = (value: number) => MathUtils.clamp(value, 1, 1.42);
-const UPPER_FILO_RELEASE = 0.16;
-const LOWER_FILO_RELEASE = 0.15;
-const ANATOMY_PHASE = Object.freeze({ explodeStart: 0.58, exploded: 0.68, reassemble: 0.89, assembled: 0.955 });
+const COMPACT_FILO_OFFSET = 0.045;
 const isInternalFilo = (name: string) =>
   name.startsWith("UpperFilo") || name.startsWith("LowerFilo");
 const PISTACHIO_ANATOMY_SCALE = Object.freeze({ x: 1.28, y: 1.18, z: 1.28 });
@@ -139,22 +139,13 @@ const cubic = (a: number, b: number, c: number, t: number) => {
   const u = 1 - t;
   return 3 * u * u * t * a + 3 * u * t * t * b + t * t * t * c;
 };
-const phasedAmount = (
-  p: number,
-  openStart: number,
-  openEnd: number,
-  closeStart: number,
-  closeEnd: number,
-) =>
-  p < openStart
-    ? 0
-    : p < openEnd
-      ? smooth(range(p, openStart, openEnd))
-      : p < closeStart
-        ? 1
-        : p < closeEnd
-          ? 1 - smooth(range(p, closeStart, closeEnd))
-          : 0;
+// One clamped, progress-derived value drives every transform. Traversing the
+// opening trigger backward therefore closes with the exact same curve/speed.
+const explodeProgress = (p: number) => {
+  const openT = smooth(range(p, EXPLOSION.start, EXPLOSION.end));
+  if (p <= RECONSTRUCTION.start) return openT;
+  return 1 - smooth(range(p, RECONSTRUCTION.start, RECONSTRUCTION.end));
+};
 const equalsVector = (a: Vector3, b: Vector3) => a.distanceToSquared(b) < 1e-12;
 const equalsQuaternion = (a: Quaternion, b: Quaternion) =>
   Math.abs(a.dot(b)) > 1 - 1e-10;
@@ -297,11 +288,9 @@ export function SingleBaklava({
         toZ = rig.spec.to[2],
         toAxis = verticalAxis === "x" ? toX : verticalAxis === "y" ? toY : toZ,
         direction = Math.sign(toAxis);
-      let dist = Math.abs(toAxis) * 0.32;
-      if (rig.logical === "UpperFilo") dist = UPPER_FILO_RELEASE;
-      else if (rig.logical === "LowerFilo") dist = LOWER_FILO_RELEASE;
       rig.releaseOffset.set(0, 0, 0);
-      rig.releaseOffset[verticalAxis] = direction * dist;
+      if (rig.logical === "UpperFilo" || rig.logical === "LowerFilo")
+        rig.releaseOffset[verticalAxis] = -direction * COMPACT_FILO_OFFSET;
       rig.anatomyPosition.set(toX, toY, toZ);
     });
     scene.updateMatrixWorld(true);
@@ -359,12 +348,12 @@ export function SingleBaklava({
         const rig = prepared.rigs.get(logical)!;
         console.info(`${logical} (${rig.mesh.name}):`, {
           ASSEMBLED_position: rig.original.position.toArray(),
-          RELEASE_position: rig.releaseOffset.toArray(),
+          COMPACT_offset: rig.releaseOffset.toArray(),
           ANATOMY_position: rig.anatomyPosition.toArray(),
           ASSEMBLED_scale: rig.original.scale.toArray(),
           RELEASE_scale: rig.original.scale.toArray(),
           ANATOMY_scale: rig.anatomyScale.toArray(),
-          releaseOffsetAlong: prepared.verticalAxis,
+          compactOffsetAlong: prepared.verticalAxis,
         });
         console.assert(
           equalsVector(rig.original.scale, rig.original.scale),
@@ -395,13 +384,7 @@ export function SingleBaklava({
       anatomyRotationWeight =
         smooth(range(p, 0.5, 0.66)) * (1 - smooth(range(p, 0.91, 0.98))),
       idleRotationSpeed = (Math.PI * 2) / 21,
-      explosionAmount = phasedAmount(
-        p,
-        ANATOMY_PHASE.explodeStart,
-        ANATOMY_PHASE.exploded,
-        ANATOMY_PHASE.reassemble,
-        ANATOMY_PHASE.assembled,
-      ),
+      explosionAmount = explodeProgress(p),
       index = getAnatomyInspectionIndex(p),
       inspection = index >= 0 ? anatomyInspections[index] : null,
       local = inspection ? anatomyInspectionLocal(p) : 0,
@@ -436,9 +419,9 @@ export function SingleBaklava({
       if (isFilo) {
         rig.mesh.visible = true;
         tempPosition.set(
-          rig.anatomyPosition.x * motionScale * explosionAmount,
-          rig.anatomyPosition.y * mobileY * explosionAmount,
-          rig.anatomyPosition.z * mobileZ * explosionAmount,
+          MathUtils.lerp(rig.releaseOffset.x, rig.anatomyPosition.x * motionScale, explosionAmount),
+          MathUtils.lerp(rig.releaseOffset.y, rig.anatomyPosition.y * mobileY, explosionAmount),
+          MathUtils.lerp(rig.releaseOffset.z, rig.anatomyPosition.z * mobileZ, explosionAmount),
         );
         rig.motion.quaternion.slerpQuaternions(
           identity,
@@ -496,10 +479,8 @@ export function SingleBaklava({
         }
         if (material instanceof MeshStandardMaterial) {
           material.color.copy(rig.original.colors[i]);
-          material.emissive.set(
-            active && rig.logical === "Pistachio" ? "#283318" : "#000000",
-          );
-          material.emissiveIntensity = active ? 0.055 * focus : 0;
+          material.emissive.set("#000000");
+          material.emissiveIntensity = 0;
         }
       });
     });
@@ -541,8 +522,8 @@ export function SingleBaklava({
             `${rig.logical}: original scale drift`,
           );
           console.assert(
-            rig.motion.position.lengthSq() < 1e-12,
-            `${rig.logical}: closed motion offset`,
+            equalsVector(rig.motion.position, rig.releaseOffset),
+            `${rig.logical}: compact motion offset drift`,
           );
           console.assert(
             equalsQuaternion(rig.motion.quaternion, identity),

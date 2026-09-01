@@ -13,7 +13,7 @@
 
 /* Cinematic direction: one continuous product stage, with restrained depth layers. */
 .experience-track{height:1850vh}
-.is-ready .canvas-shell{filter:brightness(calc(.28 + var(--intro-light,1)*.72));transition:opacity .7s cubic-bezier(.22,1,.36,1),filter .2s linear}
+.is-ready .canvas-shell{filter:brightness(calc(.62 + var(--intro-light,1)*.38));transition:opacity .7s cubic-bezier(.22,1,.36,1),filter .2s linear}
 .experience-sticky:before{content:"";position:absolute;z-index:0;inset:-12%;pointer-events:none;background:radial-gradient(circle at calc(50% + var(--parallax,0)*2%),rgba(232,174,89,calc(.045 + var(--warmth,0)*.12)) 0,transparent 44%),linear-gradient(112deg,transparent 38%,rgba(255,225,174,calc(var(--warmth,0)*.07)) 51%,transparent 64%)}
 .brand-geometry{transform:translateY(calc(var(--parallax,0)*-5px))}
 .mask{clip-path:inset(calc(100% - var(--clip,100%)) 0 0)}
@@ -152,6 +152,12 @@ body{font-synthesis:none;text-rendering:optimizeLegibility}
 }
 
 @media(prefers-reduced-motion:reduce){
- .experience-track{height:900vh}
+ .experience-track{height:520vh}
  .connector-overlay .anatomy-copy.mobile-follow{transition:none}
 }
+
+/* Shorter native-scroll track: same normalized story, less physical travel. */
+.experience-track{height:1000vh}
+@media(min-width:721px) and (max-width:1099px){.experience-track{height:1050vh}}
+@media(max-width:720px){.experience-track{height:900vh}}
+@media(prefers-reduced-motion:reduce){.experience-track{height:520vh}}
