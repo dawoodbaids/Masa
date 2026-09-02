@@ -13,7 +13,11 @@
 
 /* Cinematic direction: one continuous product stage, with restrained depth layers. */
 .experience-track{height:1850vh}
-.is-ready .canvas-shell{filter:brightness(calc(.62 + var(--intro-light,1)*.38));transition:opacity .7s cubic-bezier(.22,1,.36,1),filter .2s linear}
+.is-ready .canvas-shell{filter:none;transition:opacity .7s cubic-bezier(.22,1,.36,1)}
+.hero-background-waves{position:absolute;inset:0;z-index:1;width:100%;height:100%;pointer-events:none;overflow:hidden;opacity:0;transition:opacity .5s ease}
+.hero-background-waves path{fill:none;stroke:#9a712d;stroke-width:.8;vector-effect:non-scaling-stroke;opacity:.13}
+.hero-background-waves .waves-right{opacity:.7}
+.is-ready .hero-background-waves{opacity:calc(1 - min(1,var(--story)*14))}
 .experience-sticky:before{content:"";position:absolute;z-index:0;inset:-12%;pointer-events:none;background:radial-gradient(circle at calc(50% + var(--parallax,0)*2%),rgba(232,174,89,calc(.045 + var(--warmth,0)*.12)) 0,transparent 44%),linear-gradient(112deg,transparent 38%,rgba(255,225,174,calc(var(--warmth,0)*.07)) 51%,transparent 64%)}
 .brand-geometry{transform:translateY(calc(var(--parallax,0)*-5px))}
 .mask{clip-path:inset(calc(100% - var(--clip,100%)) 0 0)}
@@ -155,6 +159,25 @@ body{font-synthesis:none;text-rendering:optimizeLegibility}
  .experience-track{height:520vh}
  .connector-overlay .anatomy-copy.mobile-follow{transition:none}
 }
+
+@media(max-width:720px){
+ .hero-background-waves path{stroke-width:.65;opacity:.1}
+ .hero-background-waves .waves-left path:nth-child(n+3),.hero-background-waves .waves-right path:nth-child(n+3){display:none}
+}
+@media(prefers-reduced-motion:reduce){.hero-background-waves{transition:none}}
+
+/* Mobile: decorative waves pause completely once dissection/inspection begins.
+   The 3D stage is locked at this point, so nothing decorative should move. */
+@media(max-width:720px){.experience-overlay.anatomy-active .hero-background-waves{opacity:0;transition:none}}
+
+/* The 3D viewport must never reflow while annotation text changes: it is an
+   absolutely-positioned full-bleed layer that stays put no matter what the
+   overlay copy does. */
+.canvas-shell{contain:layout paint}
+
+/* Connector endpoints are sampled from the frozen inspection assembly; do not
+   animate the label between samples on touch devices. */
+@media(max-width:720px){.connector-overlay .anatomy-copy.mobile-follow{transition:none}}
 
 /* Shorter native-scroll track: same normalized story, less physical travel. */
 .experience-track{height:1000vh}

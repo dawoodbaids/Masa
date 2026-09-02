@@ -5,13 +5,11 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import {
   Box3,
-  Color,
   Euler,
   Group,
   Material,
   MathUtils,
   Mesh,
-  MeshStandardMaterial,
   Quaternion,
   Vector3,
 } from "three";
@@ -25,14 +23,14 @@ import { expectedMeshes, MeshName } from "../content/story";
 import { range, smooth } from "../controllers/math";
 import {
   createRootPose,
-  EXPLOSION,
   PRE_ANATOMY,
   RECONSTRUCTION,
   sampleStoryPose,
 } from "../controllers/sceneTimeline";
 import type { ExperienceBridge } from "../experienceTypes";
 import { getResponsiveProfile } from "../content/responsiveScenes";
-import { tuneBakedMaterial } from "./materialTreatment";
+import { MODE_CONFIG } from "../content/deviceConfig";
+import type { DeviceConfig } from "../content/deviceConfig";
 
 type LogicalLayer = MeshName;
 type Axis = "x" | "y" | "z";
@@ -40,7 +38,6 @@ type OriginalTransform = {
   position: Vector3;
   quaternion: Quaternion;
   scale: Vector3;
-  colors: Color[];
 };
 type MotionSpec = {
   c1: readonly [number, number, number];
@@ -126,12 +123,17 @@ const MOTION: Readonly<Record<LogicalLayer, MotionSpec>> = {
 const identity = new Quaternion(),
   tempPosition = new Vector3(),
   tempFocus = new Vector3(),
-  tempQuaternion = new Quaternion(),
-  tempEuler = new Euler(),
-  explodedBounds = new Box3(),
-  explodedCenter = new Vector3();
+  tempQuaternion = new Quaternion();
 const correction = (value: number) => MathUtils.clamp(value, 1, 1.42);
 const COMPACT_FILO_OFFSET = 0.045;
+// GLB bounds show X as width, Y as vertical, and Z as depth toward the camera.
+// The former hero yaw was -0.46 rad; this compensating base yaw presents the
+// textured pistachio face front-on while keeping scroll rotation relative.
+// GLB bounds establish Y as up, X as width, and Z as the front/depth axis.
+// The previous quarter-turn was the source of the closed/side-facing hero.
+// This is the calibrated front-facing pose: a small pitch, no roll/yaw.
+const BASE_ROTATION = Object.freeze({ x: -0.08, y: 0, z: 0 });
+const TWO_PI = Math.PI * 2;
 const isInternalFilo = (name: string) =>
   name.startsWith("UpperFilo") || name.startsWith("LowerFilo");
 const PISTACHIO_ANATOMY_SCALE = Object.freeze({ x: 1.28, y: 1.18, z: 1.28 });
@@ -141,10 +143,16 @@ const cubic = (a: number, b: number, c: number, t: number) => {
 };
 // One clamped, progress-derived value drives every transform. Traversing the
 // opening trigger backward therefore closes with the exact same curve/speed.
-const explodeProgress = (p: number) => {
-  const openT = smooth(range(p, EXPLOSION.start, EXPLOSION.end));
-  if (p <= RECONSTRUCTION.start) return openT;
-  return 1 - smooth(range(p, RECONSTRUCTION.start, RECONSTRUCTION.end));
+// The progress window is taken from the device config so desktop keeps its
+// narrow fast burst while mobile gets a slightly wider, touch-tolerant range.
+const explodeProgress = (p: number, cfg: DeviceConfig) => {
+  const openT = smooth(range(p, cfg.explode.start, cfg.explode.end));
+  const value = p <= cfg.explode.reconstructStart
+    ? openT
+    : 1 - smooth(range(p, cfg.explode.reconstructStart, cfg.explode.reconstructEnd));
+  if (value < cfg.explode.snapClosed) return 0;
+  if (value > cfg.explode.snapOpen) return 1;
+  return value;
 };
 const equalsVector = (a: Vector3, b: Vector3) => a.distanceToSquared(b) < 1e-12;
 const equalsQuaternion = (a: Quaternion, b: Quaternion) =>
@@ -159,10 +167,16 @@ export function SingleBaklava({
 }) {
   const gltf = useGLTF(BAKLAVA_MODEL_URL, false, true),
     root = useRef<Group>(null),
+    orientationGroup = useRef<Group>(null),
+    spinGroup = useRef<Group>(null),
+    chapterGroup = useRef<Group>(null),
     validated = useRef(false),
     rootPose = useRef(createRootPose()),
-    rootQuaternion = useRef(new Quaternion()),
-    idleRotation = useRef(0),
+autoSpinAngle = useRef(0),
+    dissectionActive = useRef(false),
+    dissectionTarget = useRef(0),
+    dissectionBlend = useRef(1),
+    explodeLatched = useRef(0),
     { size } = useThree();
   const prepared = useMemo(() => {
     const scene = gltf.scene.clone(true),
@@ -183,8 +197,8 @@ export function SingleBaklava({
           return clone;
         });
       child.material = array ? materials : materials[0];
-      child.castShadow = false;
-      child.receiveShadow = false;
+      child.castShadow = true;
+      child.receiveShadow = true;
       child.geometry.computeBoundingBox();
       physical.set(child.name as MeshName, child);
     });
@@ -223,16 +237,10 @@ export function SingleBaklava({
           position: mesh.position.clone(),
           quaternion: mesh.quaternion.clone(),
           scale: mesh.scale.clone(),
-          colors: materials.map((material) =>
-            material instanceof MeshStandardMaterial
-              ? material.color.clone()
-              : new Color(1, 1, 1),
-          ),
         },
         assembledSize = dimensions.get(LAYER_MAPPING[logical])!.clone(),
         anatomyScale = new Vector3(1, 1, 1),
         filo = logical === "UpperFilo" || logical === "LowerFilo";
-      materials.forEach((material) => tuneBakedMaterial(material, logical));
       if (filo) {
         (["x", "y", "z"] as Axis[]).forEach((axis) => {
           if (axis !== verticalAxis)
@@ -373,49 +381,98 @@ export function SingleBaklava({
       );
     };
   }, [bridge, onReady, prepared]);
-  useFrame((_, delta) => {
+useFrame((_, delta) => {
     const group = root.current;
     if (!group) return;
-    const p = bridge.progress.current.current,
-      profile = getResponsiveProfile(size.width, size.height),
-      mobile = profile.mode === "mobile",
+    const profile = getResponsiveProfile(size.width, size.height),
+      mode = profile.mode,
+      mobile = mode === "mobile",
+      cfg = MODE_CONFIG[mode],
+      p = bridge.progress.current.current,
       pose = sampleStoryPose(p, size.width, size.height, rootPose.current),
-      rotationProgress = smooth(range(p, PRE_ANATOMY.start, PRE_ANATOMY.end)) * 0.08,
-      anatomyRotationWeight =
-        smooth(range(p, 0.5, 0.66)) * (1 - smooth(range(p, 0.91, 0.98))),
-      idleRotationSpeed = (Math.PI * 2) / 21,
-      explosionAmount = explodeProgress(p),
-      index = getAnatomyInspectionIndex(p),
+      rawExplode = explodeProgress(p, cfg);
+    // Mobile-only hysteresis latch: once fully exploded, the parent transform
+    // is pinned to the final exploded pose for the whole inspection window.
+    // Tiny touch scroll deltas that push progress across the edge can no
+    // longer make the model twitch back toward the compact pose.
+    let explosionAmount = rawExplode;
+    if (cfg.explode.latch && mobile) {
+      if (p >= cfg.explode.end) explodeLatched.current = 1;
+      else if (p <= cfg.explode.end - cfg.explode.latchBand)
+        explodeLatched.current = 0;
+      if (explodeLatched.current === 1 && p < cfg.explode.reconstructStart)
+        explosionAmount = 1;
+    }
+    const index = getAnatomyInspectionIndex(p),
       inspection = index >= 0 ? anatomyInspections[index] : null,
       local = inspection ? anatomyInspectionLocal(p) : 0,
-      focus = inspection
-        ? smooth(range(local, 0.05, 0.2)) *
-          (1 - smooth(range(local, 0.8, 0.96)))
-        : 0,
-      motionScale = mobile ? profile.explosion : 1;
-    if (!bridge.progress.current.reduced)
-      idleRotation.current =
-        (idleRotation.current +
-          delta * idleRotationSpeed * MathUtils.lerp(1, 0.05, anatomyRotationWeight)) %
-        (Math.PI * 2);
-    tempEuler.set(
-      pose.rotationX,
-      pose.rotationY + rotationProgress * Math.PI * 2 + idleRotation.current,
-      pose.rotationZ,
-    );
-    rootQuaternion.current.setFromEuler(tempEuler);
+      // Once the assembly is fully exploded, the inspection diagram is a
+      // locked 3D state.  Keep annotation changes in the overlay only; do
+      // not let the active layer introduce a second position/scale motion
+      // source while a finger is still producing tiny scroll deltas.
+      focus = explosionAmount >= 1
+        ? 0
+        : inspection
+          ? smooth(range(local, 0.05, 0.2)) *
+            (1 - smooth(range(local, 0.8, 0.96)))
+          : 0,
+      // Central per-device model travel. Desktop keeps unit multipliers;
+      // mobile layers its multipliers on the tuned viewport profile values.
+      modelMotion = mobile
+        ? {
+            x: profile.explosion * cfg.model.explode.scale,
+            y: profile.anatomySpacing * cfg.model.explode.y,
+            z: cfg.model.explode.z,
+          }
+        : { x: cfg.model.explode.scale, y: cfg.model.explode.y, z: cfg.model.explode.z };
     group.position.set(pose.x, pose.y, pose.z);
-    group.quaternion.copy(rootQuaternion.current);
     group.scale.setScalar(
       pose.scale,
     );
+    // Mobile stops the turntable slightly earlier than the dissection beat so
+    // it aligns to the readable front angle and is fully stable before the
+    // explosion begins. Desktop keeps its existing alignment timing.
+    const dissectionStop = PRE_ANATOMY.start + cfg.spin.stopOffset;
+    const inDissection = p >= dissectionStop && p < RECONSTRUCTION.end;
+    if (inDissection && !dissectionActive.current) {
+      dissectionActive.current = true;
+      dissectionTarget.current = Math.round(autoSpinAngle.current / TWO_PI) * TWO_PI;
+      dissectionBlend.current = 0;
+    } else if (!inDissection && dissectionActive.current) {
+      dissectionActive.current = false;
+      autoSpinAngle.current = dissectionTarget.current;
+      dissectionBlend.current = 1;
+    }
+    if (orientationGroup.current) orientationGroup.current.rotation.set(BASE_ROTATION.x, BASE_ROTATION.y, BASE_ROTATION.z);
+    if (inDissection && spinGroup.current) {
+      const safeDelta = Math.min(Math.max(delta, 0), 0.05);
+      dissectionBlend.current = Math.min(1, dissectionBlend.current + safeDelta / cfg.spin.alignSeconds);
+      if (cfg.spin.hardLockAtExplode && mobile && p >= cfg.explode.start) {
+        // Guarantee auto-spin and the explosion never overlap on mobile.
+        autoSpinAngle.current = dissectionTarget.current;
+        dissectionBlend.current = 1;
+        spinGroup.current.rotation.y = dissectionTarget.current;
+      } else {
+        spinGroup.current.rotation.y = MathUtils.lerp(autoSpinAngle.current, dissectionTarget.current, smooth(dissectionBlend.current));
+        if (dissectionBlend.current >= 1) autoSpinAngle.current = dissectionTarget.current;
+      }
+    } else if (!bridge.progress.current.reduced && spinGroup.current) {
+      const safeDelta = Math.min(Math.max(delta, 0), 0.05);
+      autoSpinAngle.current = (autoSpinAngle.current + safeDelta * (TWO_PI / cfg.spin.revolutionsSeconds)) % TWO_PI;
+      spinGroup.current.rotation.y = autoSpinAngle.current;
+    } else if (spinGroup.current) {
+      autoSpinAngle.current = 0;
+      spinGroup.current.rotation.y = 0;
+    }
+    if (chapterGroup.current) chapterGroup.current.rotation.set(0, 0, 0);
     prepared.rigs.forEach((rig) => {
       const isFilo = rig.logical === "UpperFilo" || rig.logical === "LowerFilo",
         active = inspection?.layers.includes(rig.logical) ?? false,
         focusAmount = active ? focus : 0,
         s = rig.spec,
-        mobileY = mobile ? profile.anatomySpacing : 1,
-        mobileZ = mobile ? 0.78 : 1;
+        motionScale = modelMotion.x,
+        mobileY = modelMotion.y,
+        mobileZ = modelMotion.z;
       if (isFilo) {
         rig.mesh.visible = true;
         tempPosition.set(
@@ -470,30 +527,15 @@ export function SingleBaklava({
       rig.mesh.scale.copy(rig.original.scale);
       if (mobile && active)
         rig.footprint.scale.multiplyScalar(1 + 0.012 * focus);
-      rig.materials.forEach((material, i) => {
+      rig.materials.forEach((material) => {
         if (!isFilo) {
           material.opacity = 1;
           material.depthWrite = true;
         } else {
           material.depthWrite = material.opacity > 0.98;
         }
-        if (material instanceof MeshStandardMaterial) {
-          material.color.copy(rig.original.colors[i]);
-          material.emissive.set("#000000");
-          material.emissiveIntensity = 0;
-        }
       });
     });
-    if (mobile && explosionAmount > 0) {
-      group.updateWorldMatrix(true, true);
-      explodedBounds.setFromObject(group).getCenter(explodedCenter);
-      group.position.y +=
-        MathUtils.clamp(
-          profile.anatomyCenterY - explodedCenter.y,
-          -0.18,
-          0.18,
-        ) * explosionAmount;
-    }
     if (process.env.NODE_ENV === "development") {
       const anatomyStable = p >= 0.685 && p < 0.89;
       if (anatomyStable)
@@ -543,10 +585,15 @@ export function SingleBaklava({
       ref={root}
       name="BaklavaRoot"
       position={[initial.x, initial.y, initial.z]}
-      rotation={[initial.rotationX, initial.rotationY, initial.rotationZ]}
       scale={initial.scale}
     >
-      <primitive object={prepared.scene} />
+      <group ref={orientationGroup}>
+        <group ref={spinGroup}>
+          <group ref={chapterGroup}>
+            <primitive object={prepared.scene} />
+          </group>
+        </group>
+      </group>
     </group>
   );
 }
