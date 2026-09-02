@@ -52,14 +52,6 @@ export type DeviceConfig = {
     /** exact-state snap thresholds (>= snapOpen -> 1, <= snapClosed -> 0) */
     snapOpen: number;
     snapClosed: number;
-    /**
-     * Mobile-only hysteresis latch: once the explosion completes, the parent
-     * transform is locked to the final exploded pose for the whole inspection
-     * window even if tiny touch scroll deltas push progress across the edge.
-     */
-    latch: boolean;
-    /** hysteresis band after `end` where the latch stays armed while parking */
-    latchBand: number;
   };
   connector: {
     /** fraction of viewport width used as the safe margin around labels */
@@ -101,7 +93,7 @@ export const DESKTOP_CONFIG: DeviceConfig = {
     anatomyYMode: "fixed",
     anatomyTargetY: -0.12,
     anatomyOffsetZ: 0.18,
-    lockCameraInAnatomy: false,
+    lockCameraInAnatomy: true,
   },
   model: {
     explode: { scale: 1, y: 1, z: 1 },
@@ -113,8 +105,6 @@ export const DESKTOP_CONFIG: DeviceConfig = {
     reconstructEnd: 0.905,
     snapOpen: 0.98,
     snapClosed: 0.02,
-    latch: false,
-    latchBand: 0.012,
   },
   connector: {
     marginOf: 0.04,
@@ -154,16 +144,13 @@ export const MOBILE_CONFIG: DeviceConfig = {
     explode: { scale: 1, y: 1, z: 0.78 },
   },
   explode: {
-    // Slightly wider and more tolerant than desktop: one strong swipe around
-    // the trigger covers compact -> full exploded without oscillating.
-    start: 0.57,
-    end: 0.625,
+    // Same narrow progress span as desktop for a symmetric fast transition.
+    start: 0.58,
+    end: 0.595,
     reconstructStart: 0.89,
     reconstructEnd: 0.905,
     snapOpen: 0.97,
     snapClosed: 0.03,
-    latch: true,
-    latchBand: 0.012,
   },
   connector: {
     marginOf: 0.04,

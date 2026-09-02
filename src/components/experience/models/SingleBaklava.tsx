@@ -15,9 +15,8 @@ import {
 } from "three";
 import { BAKLAVA_MODEL_URL } from "../modelAsset";
 import {
-  anatomyInspectionLocal,
   anatomyInspections,
-  getAnatomyInspectionIndex,
+  getActiveDissectionStepIndex,
 } from "../content/anatomy";
 import { expectedMeshes, MeshName } from "../content/story";
 import { range, smooth } from "../controllers/math";
@@ -121,9 +120,7 @@ const MOTION: Readonly<Record<LogicalLayer, MotionSpec>> = {
   },
 };
 const identity = new Quaternion(),
-  tempPosition = new Vector3(),
-  tempFocus = new Vector3(),
-  tempQuaternion = new Quaternion();
+  tempPosition = new Vector3();
 const correction = (value: number) => MathUtils.clamp(value, 1, 1.42);
 const COMPACT_FILO_OFFSET = 0.045;
 // GLB bounds show X as width, Y as vertical, and Z as depth toward the camera.
@@ -134,8 +131,7 @@ const COMPACT_FILO_OFFSET = 0.045;
 // This is the calibrated front-facing pose: a small pitch, no roll/yaw.
 const BASE_ROTATION = Object.freeze({ x: -0.08, y: 0, z: 0 });
 const TWO_PI = Math.PI * 2;
-const isInternalFilo = (name: string) =>
-  name.startsWith("UpperFilo") || name.startsWith("LowerFilo");
+const TRANSITION_MIN_OPACITY = 0.22;
 const PISTACHIO_ANATOMY_SCALE = Object.freeze({ x: 1.28, y: 1.18, z: 1.28 });
 const cubic = (a: number, b: number, c: number, t: number) => {
   const u = 1 - t;
@@ -143,8 +139,8 @@ const cubic = (a: number, b: number, c: number, t: number) => {
 };
 // One clamped, progress-derived value drives every transform. Traversing the
 // opening trigger backward therefore closes with the exact same curve/speed.
-// The progress window is taken from the device config so desktop keeps its
-// narrow fast burst while mobile gets a slightly wider, touch-tolerant range.
+// The same narrow progress window is used in both directions. No transition
+// state is retained, so every scroll position always produces the same pose.
 const explodeProgress = (p: number, cfg: DeviceConfig) => {
   const openT = smooth(range(p, cfg.explode.start, cfg.explode.end));
   const value = p <= cfg.explode.reconstructStart
@@ -176,18 +172,12 @@ autoSpinAngle = useRef(0),
     dissectionActive = useRef(false),
     dissectionTarget = useRef(0),
     dissectionBlend = useRef(1),
-    explodeLatched = useRef(0),
     { size } = useThree();
   const prepared = useMemo(() => {
     const scene = gltf.scene.clone(true),
-      physical = new Map<MeshName, Mesh>(),
-      internalMeshes: Mesh[] = [];
+      physical = new Map<MeshName, Mesh>();
     scene.traverse((child) => {
       if (!(child instanceof Mesh)) return;
-      if (isInternalFilo(child.name)) {
-        child.visible = true;
-        internalMeshes.push(child);
-      }
       if (!expectedMeshes.includes(child.name as MeshName)) return;
       const array = Array.isArray(child.material),
         source = array ? child.material : [child.material],
@@ -308,12 +298,9 @@ autoSpinAngle = useRef(0),
       normalizer = 1.32 / Math.max(extent.x, extent.y, extent.z);
     scene.scale.setScalar(normalizer);
     scene.position.copy(center).multiplyScalar(-normalizer);
-    return { scene, rigs, verticalAxis, internalMeshes };
+    return { scene, rigs, verticalAxis };
   }, [gltf.scene]);
   useEffect(() => {
-    const anchors: Partial<Record<LogicalLayer, Mesh>> = {};
-    prepared.rigs.forEach((rig, logical) => (anchors[logical] = rig.mesh));
-    bridge.pastry.current = anchors;
     prepared.scene.updateMatrixWorld(true);
     if (process.env.NODE_ENV === "development") {
       console.group("Masa · logical layer mapping");
@@ -372,7 +359,6 @@ autoSpinAngle = useRef(0),
     }
     onReady();
     return () => {
-      bridge.pastry.current = {};
       prepared.rigs.forEach((rig) =>
         (Array.isArray(rig.mesh.material)
           ? rig.mesh.material
@@ -390,32 +376,11 @@ useFrame((_, delta) => {
       cfg = MODE_CONFIG[mode],
       p = bridge.progress.current.current,
       pose = sampleStoryPose(p, size.width, size.height, rootPose.current),
-      rawExplode = explodeProgress(p, cfg);
-    // Mobile-only hysteresis latch: once fully exploded, the parent transform
-    // is pinned to the final exploded pose for the whole inspection window.
-    // Tiny touch scroll deltas that push progress across the edge can no
-    // longer make the model twitch back toward the compact pose.
-    let explosionAmount = rawExplode;
-    if (cfg.explode.latch && mobile) {
-      if (p >= cfg.explode.end) explodeLatched.current = 1;
-      else if (p <= cfg.explode.end - cfg.explode.latchBand)
-        explodeLatched.current = 0;
-      if (explodeLatched.current === 1 && p < cfg.explode.reconstructStart)
-        explosionAmount = 1;
-    }
-    const index = getAnatomyInspectionIndex(p),
-      inspection = index >= 0 ? anatomyInspections[index] : null,
-      local = inspection ? anatomyInspectionLocal(p) : 0,
-      // Once the assembly is fully exploded, the inspection diagram is a
-      // locked 3D state.  Keep annotation changes in the overlay only; do
-      // not let the active layer introduce a second position/scale motion
-      // source while a finger is still producing tiny scroll deltas.
-      focus = explosionAmount >= 1
-        ? 0
-        : inspection
-          ? smooth(range(local, 0.05, 0.2)) *
-            (1 - smooth(range(local, 0.8, 0.96)))
-          : 0,
+      explosionAmount = explodeProgress(p, cfg),
+      transitionOpacity = explosionAmount > 0 && explosionAmount < 1
+        ? 1-(1-TRANSITION_MIN_OPACITY)*Math.sin(Math.PI*explosionAmount)
+        : 1,
+      activeStepIndex = getActiveDissectionStepIndex(p),
       // Central per-device model travel. Desktop keeps unit multipliers;
       // mobile layers its multipliers on the tuned viewport profile values.
       modelMotion = mobile
@@ -467,14 +432,12 @@ useFrame((_, delta) => {
     if (chapterGroup.current) chapterGroup.current.rotation.set(0, 0, 0);
     prepared.rigs.forEach((rig) => {
       const isFilo = rig.logical === "UpperFilo" || rig.logical === "LowerFilo",
-        active = inspection?.layers.includes(rig.logical) ?? false,
-        focusAmount = active ? focus : 0,
+        stepIndex = anatomyInspections.findIndex(step=>step.layers.includes(rig.logical)),
         s = rig.spec,
         motionScale = modelMotion.x,
         mobileY = modelMotion.y,
         mobileZ = modelMotion.z;
       if (isFilo) {
-        rig.mesh.visible = true;
         tempPosition.set(
           MathUtils.lerp(rig.releaseOffset.x, rig.anatomyPosition.x * motionScale, explosionAmount),
           MathUtils.lerp(rig.releaseOffset.y, rig.anatomyPosition.y * mobileY, explosionAmount),
@@ -490,10 +453,6 @@ useFrame((_, delta) => {
           MathUtils.lerp(1, rig.anatomyScale.y, explosionAmount),
           MathUtils.lerp(1, rig.anatomyScale.z, explosionAmount),
         );
-        rig.materials.forEach((material) => {
-          material.opacity = 1;
-          material.depthWrite = true;
-        });
       } else {
         tempPosition.set(
           cubic(s.c1[0], s.c2[0], s.to[0], explosionAmount) * motionScale,
@@ -511,43 +470,25 @@ useFrame((_, delta) => {
           MathUtils.lerp(1, rig.anatomyScale.z, explosionAmount),
         );
       }
-      tempFocus
-        .set(s.focus[0], s.focus[1], s.focus[2] * mobileZ)
-        .multiplyScalar(focusAmount);
-      if (mobile) tempFocus.set(0, 0, 0);
-      rig.motion.position.copy(tempPosition).add(tempFocus);
-      tempQuaternion.slerpQuaternions(
-        identity,
-        rig.focusQuaternion,
-        focusAmount,
-      );
-      if (!mobile) rig.motion.quaternion.multiply(tempQuaternion);
+      rig.motion.position.copy(tempPosition);
+      if(mobile&&activeStepIndex===stepIndex){const offset=anatomyInspections[stepIndex].mobileStoryOffset;rig.motion.position.x+=offset[0];rig.motion.position.y+=offset[1];rig.motion.position.z+=offset[2]}
       rig.mesh.position.copy(rig.original.position);
       rig.mesh.quaternion.copy(rig.original.quaternion);
       rig.mesh.scale.copy(rig.original.scale);
-      if (mobile && active)
-        rig.footprint.scale.multiplyScalar(1 + 0.012 * focus);
+      rig.mesh.visible = activeStepIndex < 0 || stepIndex === activeStepIndex;
       rig.materials.forEach((material) => {
-        if (!isFilo) {
-          material.opacity = 1;
-          material.depthWrite = true;
-        } else {
-          material.depthWrite = material.opacity > 0.98;
+        material.opacity = transitionOpacity;
+        const transparent = material.opacity < .999;
+        if (material.transparent !== transparent) {
+          material.transparent = transparent;
+          material.needsUpdate = true;
         }
+        material.depthWrite = material.opacity > .98;
       });
     });
     if (process.env.NODE_ENV === "development") {
-      const anatomyStable = p >= 0.685 && p < 0.89;
-      if (anatomyStable)
-        prepared.rigs.forEach((rig) => {
-          if (rig.logical === "UpperFilo" || rig.logical === "LowerFilo") {
-            console.assert(
-              equalsVector(rig.footprint.scale, rig.anatomyScale),
-              `${rig.logical}: anatomy scale changed during focus`,
-            );
-            console.assert(rig.mesh.visible, `${rig.logical}: hidden during anatomy stable`);
-          }
-        });
+      const visibleRigs=[...prepared.rigs.values()].filter(rig=>rig.mesh.visible);
+      console.assert(visibleRigs.length===(activeStepIndex<0?5:1),`Dissection visibility invariant: expected ${activeStepIndex<0?5:1}, found ${visibleRigs.length}`);
       if (!validated.current && p >= 0.965) {
         validated.current = true;
         prepared.rigs.forEach((rig) => {
